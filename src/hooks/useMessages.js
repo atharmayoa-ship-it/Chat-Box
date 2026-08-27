@@ -110,5 +110,9 @@ export function useMessages(token, conversationId, currentUserId) {
     [conversationId]
   );
 
-  return { messages, loading, sendMessage, markRead };
+  const clearMessages = useCallback(() => {
+    setMessages([]);
+  }, []);
+
+  return { messages, loading, sendMessage, markRead, clearMessages };
 }

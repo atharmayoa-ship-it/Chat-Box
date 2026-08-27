@@ -9,6 +9,8 @@ import { useStats } from "../hooks/useStats";
 import ContactPanel from "../components/ContactPanel";
 import TypingIndicator from "../components/TypingIndicator";
 import EmptyState from "../components/EmptyState";
+import CallModal from "../components/CallModal";
+import ChatMenu from "../components/ChatMenu";
 import { formatDateLabel, formatTime } from "../utils/datetime";
 import { getInitials } from "../utils/initials";
 import { avatarStyle } from "../utils/avatarColor";
@@ -36,10 +38,17 @@ function Messages() {
   const [activeId, setActiveId] = useState(null);
   const [search, setSearch] = useState("");
   const [draft, setDraft] = useState("");
+  const [mutedIds, setMutedIds] = useState(() => new Set());
+  const [showContactPanel, setShowContactPanel] = useState(true);
+  const [callActive, setCallActive] = useState(false);
   const messagesEndRef = useRef(null);
 
-  const { conversations, loading: conversationsLoading, clearUnread } = useConversations(token, activeId);
-  const { messages, loading: messagesLoading, sendMessage, markRead } = useMessages(
+  const { conversations, loading: conversationsLoading, clearUnread } = useConversations(
+    token,
+    activeId,
+    mutedIds
+  );
+  const { messages, loading: messagesLoading, sendMessage, markRead, clearMessages } = useMessages(
     token,
     activeId,
     user?.id
@@ -62,6 +71,7 @@ function Messages() {
 
   useEffect(() => {
     setDraft("");
+    setCallActive(false);
   }, [activeId]);
 
   useEffect(() => {
@@ -124,6 +134,23 @@ function Messages() {
   };
 
   const status = STATUS_LABEL[connectionStatus] || STATUS_LABEL.connecting;
+  const isMuted = activeId != null && mutedIds.has(activeId);
+
+  const handleToggleMute = () => {
+    if (activeId == null) return;
+    setMutedIds((current) => {
+      const next = new Set(current);
+      if (next.has(activeId)) next.delete(activeId);
+      else next.add(activeId);
+      return next;
+    });
+  };
+
+  const handleClearChat = () => {
+    if (window.confirm("Clear this conversation? This only clears it on your screen.")) {
+      clearMessages();
+    }
+  };
 
   let lastDateLabel = null;
 
@@ -264,10 +291,20 @@ function Messages() {
                 </div>
 
                 <div className="chat-actions">
-                  <button disabled title="Not available in this demo">📞</button>
-                  <button disabled title="Not available in this demo">⋮</button>
+                  <button onClick={() => setCallActive(true)} title="Call">📞</button>
+                  <ChatMenu
+                    contactVisible={showContactPanel}
+                    onToggleContact={() => setShowContactPanel((current) => !current)}
+                    muted={isMuted}
+                    onToggleMute={handleToggleMute}
+                    onClearChat={handleClearChat}
+                  />
                 </div>
               </header>
+
+              {callActive && (
+                <CallModal contact={activeConversation.user} onClose={() => setCallActive(false)} />
+              )}
 
               <div className="messages-container">
                 {messagesLoading && <p className="list-loading">Loading messages…</p>}
@@ -299,7 +336,7 @@ function Messages() {
                     );
                   })}
 
-                {otherIsTyping && <TypingIndicator name={activeConversation.user.name} />}
+                {otherIsTyping && !isMuted && <TypingIndicator name={activeConversation.user.name} />}
 
                 <div ref={messagesEndRef} />
               </div>
@@ -330,7 +367,7 @@ function Messages() {
           )}
         </div>
 
-        {activeConversation && <ContactPanel contact={activeConversation.user} />}
+        {activeConversation && showContactPanel && <ContactPanel contact={activeConversation.user} />}
       </div>
     </div>
   );

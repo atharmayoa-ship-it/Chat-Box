@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { fetchConversations } from "../api/conversations";
 import { getSocket } from "../socket/socket";
 
-export function useConversations(token, activeId) {
+export function useConversations(token, activeId, mutedIds) {
   const [conversations, setConversations] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -39,10 +39,11 @@ export function useConversations(token, activeId) {
         current.map((conversation) => {
           if (conversation.id !== conversationId) return conversation;
           const isActive = conversationId === activeId;
+          const isMuted = mutedIds?.has(conversationId);
           return {
             ...conversation,
             lastMessage: message,
-            unreadCount: isActive ? 0 : conversation.unreadCount + 1,
+            unreadCount: isActive || isMuted ? 0 : conversation.unreadCount + 1,
           };
         })
       );
@@ -71,7 +72,7 @@ export function useConversations(token, activeId) {
       socket.off("presence", handlePresence);
       socket.off("connect", handleReconnect);
     };
-  }, [activeId, load]);
+  }, [activeId, load, mutedIds]);
 
   const clearUnread = useCallback((conversationId) => {
     setConversations((current) =>
